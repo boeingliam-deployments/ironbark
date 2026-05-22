@@ -1,0 +1,986 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>IronBark AU — Transcript Viewer</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Syne:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet" />
+  <style>
+    /* ── Reset & Base ───────────────────────────────────────────── */
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    :root {
+      --bg:           #0d0f14;
+      --surface:      #13161e;
+      --surface-2:    #1a1e2a;
+      --surface-3:    #222738;
+      --border:       rgba(255,255,255,0.07);
+      --border-glow:  rgba(88,101,242,0.35);
+      --accent:       #5865f2;
+      --accent-dim:   rgba(88,101,242,0.15);
+      --accent-glow:  rgba(88,101,242,0.5);
+      --green:        #57f287;
+      --green-dim:    rgba(87,242,135,0.12);
+      --red:          #ed4245;
+      --yellow:       #fee75c;
+      --yellow-dim:   rgba(254,231,92,0.12);
+      --pink:         #eb459e;
+      --text:         #e2e5f0;
+      --text-muted:   #7b82a0;
+      --text-dim:     #4a5170;
+      --radius:       12px;
+      --radius-sm:    7px;
+      --shadow:       0 8px 40px rgba(0,0,0,0.55);
+    }
+
+    html { font-size: 15px; scroll-behavior: smooth; }
+
+    body {
+      background: var(--bg);
+      color: var(--text);
+      font-family: 'Syne', sans-serif;
+      min-height: 100vh;
+      overflow-x: hidden;
+    }
+
+    /* ── Background mesh ───────────────────────────────────────── */
+    body::before {
+      content: '';
+      position: fixed;
+      inset: 0;
+      background:
+        radial-gradient(ellipse 80% 50% at 20% -10%, rgba(88,101,242,0.08) 0%, transparent 60%),
+        radial-gradient(ellipse 60% 40% at 80% 110%, rgba(235,69,158,0.06) 0%, transparent 55%);
+      pointer-events: none;
+      z-index: 0;
+    }
+
+    /* ── Layout ─────────────────────────────────────────────────── */
+    .wrapper {
+      position: relative;
+      z-index: 1;
+      max-width: 900px;
+      margin: 0 auto;
+      padding: 0 20px 80px;
+    }
+
+    /* ── Header ─────────────────────────────────────────────────── */
+    header {
+      display: flex;
+      align-items: center;
+      gap: 16px;
+      padding: 32px 0 28px;
+      border-bottom: 1px solid var(--border);
+      margin-bottom: 36px;
+    }
+
+    .logo {
+      width: 44px;
+      height: 44px;
+      border-radius: 12px;
+      background: var(--accent);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 22px;
+      flex-shrink: 0;
+      box-shadow: 0 0 20px var(--accent-glow);
+    }
+
+    .logo-text h1 {
+      font-size: 1.25rem;
+      font-weight: 800;
+      letter-spacing: -0.02em;
+      line-height: 1.1;
+    }
+
+    .logo-text span {
+      font-size: 0.75rem;
+      color: var(--text-muted);
+      font-weight: 500;
+      letter-spacing: 0.04em;
+      text-transform: uppercase;
+    }
+
+    /* ── Input panel ─────────────────────────────────────────────── */
+    #input-section {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      padding: 28px;
+      margin-bottom: 28px;
+      transition: border-color 0.2s;
+    }
+
+    #input-section:focus-within {
+      border-color: var(--border-glow);
+      box-shadow: 0 0 0 1px var(--border-glow);
+    }
+
+    .input-label {
+      font-size: 0.7rem;
+      font-weight: 700;
+      letter-spacing: 0.1em;
+      text-transform: uppercase;
+      color: var(--text-muted);
+      margin-bottom: 10px;
+      display: block;
+    }
+
+    .input-row {
+      display: flex;
+      gap: 10px;
+    }
+
+    #gist-input {
+      flex: 1;
+      background: var(--surface-2);
+      border: 1px solid var(--border);
+      border-radius: var(--radius-sm);
+      color: var(--text);
+      font-family: 'JetBrains Mono', monospace;
+      font-size: 0.82rem;
+      padding: 11px 14px;
+      outline: none;
+      transition: border-color 0.2s, box-shadow 0.2s;
+    }
+
+    #gist-input::placeholder { color: var(--text-dim); }
+
+    #gist-input:focus {
+      border-color: var(--accent);
+      box-shadow: 0 0 0 3px var(--accent-dim);
+    }
+
+    #load-btn {
+      background: var(--accent);
+      color: #fff;
+      border: none;
+      border-radius: var(--radius-sm);
+      font-family: 'Syne', sans-serif;
+      font-weight: 700;
+      font-size: 0.85rem;
+      padding: 11px 22px;
+      cursor: pointer;
+      letter-spacing: 0.02em;
+      transition: opacity 0.15s, transform 0.1s, box-shadow 0.2s;
+      white-space: nowrap;
+    }
+
+    #load-btn:hover  { opacity: 0.9; box-shadow: 0 4px 16px var(--accent-glow); }
+    #load-btn:active { transform: scale(0.97); }
+    #load-btn:disabled { opacity: 0.4; cursor: not-allowed; }
+
+    .input-hint {
+      margin-top: 10px;
+      font-size: 0.72rem;
+      color: var(--text-dim);
+      line-height: 1.5;
+    }
+
+    .input-hint a { color: var(--accent); text-decoration: none; }
+    .input-hint a:hover { text-decoration: underline; }
+
+    /* ── Toast ──────────────────────────────────────────────────── */
+    #toast {
+      position: fixed;
+      top: 20px;
+      right: 20px;
+      background: var(--surface-3);
+      border: 1px solid var(--border);
+      border-radius: var(--radius-sm);
+      padding: 12px 18px;
+      font-size: 0.82rem;
+      font-weight: 600;
+      box-shadow: var(--shadow);
+      z-index: 999;
+      opacity: 0;
+      transform: translateY(-8px);
+      transition: opacity 0.2s, transform 0.2s;
+      pointer-events: none;
+    }
+
+    #toast.show {
+      opacity: 1;
+      transform: translateY(0);
+    }
+
+    #toast.error  { border-color: var(--red);   color: var(--red); }
+    #toast.success{ border-color: var(--green);  color: var(--green); }
+
+    /* ── Transcript container ────────────────────────────────────── */
+    #transcript-container {
+      opacity: 0;
+      transform: translateY(10px);
+      transition: opacity 0.35s ease, transform 0.35s ease;
+    }
+
+    #transcript-container.visible {
+      opacity: 1;
+      transform: translateY(0);
+    }
+
+    /* ── Meta card ────────────────────────────────────────────────── */
+    #meta-card {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      padding: 22px 24px;
+      margin-bottom: 20px;
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(160px, 1fr));
+      gap: 16px 24px;
+    }
+
+    .meta-item label {
+      display: block;
+      font-size: 0.65rem;
+      font-weight: 700;
+      letter-spacing: 0.1em;
+      text-transform: uppercase;
+      color: var(--text-dim);
+      margin-bottom: 4px;
+    }
+
+    .meta-item span {
+      font-size: 0.88rem;
+      font-weight: 600;
+      color: var(--text);
+    }
+
+    .badge {
+      display: inline-block;
+      padding: 2px 10px;
+      border-radius: 20px;
+      font-size: 0.72rem;
+      font-weight: 700;
+      letter-spacing: 0.05em;
+    }
+
+    .badge-gen  { background: var(--accent-dim); color: var(--accent); }
+    .badge-mgmt { background: rgba(237,66,69,0.15); color: var(--red); }
+
+    /* ── Toolbar ──────────────────────────────────────────────────── */
+    .toolbar {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      margin-bottom: 14px;
+      flex-wrap: wrap;
+    }
+
+    #search-input {
+      flex: 1;
+      min-width: 180px;
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: var(--radius-sm);
+      color: var(--text);
+      font-family: 'Syne', sans-serif;
+      font-size: 0.82rem;
+      padding: 8px 14px;
+      outline: none;
+      transition: border-color 0.2s;
+    }
+
+    #search-input:focus { border-color: var(--accent); }
+    #search-input::placeholder { color: var(--text-dim); }
+
+    .toolbar-btn {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: var(--radius-sm);
+      color: var(--text-muted);
+      font-family: 'Syne', sans-serif;
+      font-size: 0.78rem;
+      font-weight: 600;
+      padding: 8px 14px;
+      cursor: pointer;
+      transition: border-color 0.15s, color 0.15s, background 0.15s;
+      white-space: nowrap;
+    }
+
+    .toolbar-btn:hover {
+      border-color: var(--accent);
+      color: var(--text);
+      background: var(--accent-dim);
+    }
+
+    #msg-count {
+      font-size: 0.72rem;
+      font-weight: 700;
+      color: var(--text-dim);
+      letter-spacing: 0.04em;
+      text-transform: uppercase;
+      padding: 8px 12px;
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: var(--radius-sm);
+      white-space: nowrap;
+    }
+
+    /* ── Messages feed ─────────────────────────────────────────────── */
+    #messages-feed {
+      display: flex;
+      flex-direction: column;
+      gap: 2px;
+    }
+
+    /* Grouping: messages from the same user within 5 mins collapse */
+    .msg-row {
+      display: flex;
+      gap: 12px;
+      padding: 5px 14px;
+      border-radius: 8px;
+      transition: background 0.12s;
+      position: relative;
+    }
+
+    .msg-row:hover { background: var(--surface-2); }
+
+    .msg-row.first-in-group { margin-top: 14px; }
+
+    /* Avatar slot */
+    .avatar-slot {
+      width: 36px;
+      flex-shrink: 0;
+      padding-top: 1px;
+    }
+
+    .avatar {
+      width: 36px;
+      height: 36px;
+      border-radius: 50%;
+      background: var(--surface-3);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 0.9rem;
+      font-weight: 700;
+      color: var(--text-muted);
+      letter-spacing: -0.02em;
+      flex-shrink: 0;
+    }
+
+    .avatar-stub { width: 36px; height: 36px; }
+
+    /* Hover timestamp stub */
+    .msg-row:not(.first-in-group) .avatar-stub::after {
+      content: attr(data-time);
+      position: absolute;
+      left: 0;
+      top: 50%;
+      transform: translateY(-50%);
+      font-family: 'JetBrains Mono', monospace;
+      font-size: 0.6rem;
+      color: var(--text-dim);
+      width: 50px;
+      text-align: right;
+      padding-right: 6px;
+      opacity: 0;
+      transition: opacity 0.15s;
+    }
+
+    .msg-row:hover .avatar-stub::after { opacity: 1; }
+
+    .msg-body { flex: 1; min-width: 0; }
+
+    .msg-header {
+      display: flex;
+      align-items: baseline;
+      gap: 8px;
+      margin-bottom: 2px;
+    }
+
+    .msg-author {
+      font-size: 0.9rem;
+      font-weight: 700;
+      color: var(--text);
+      cursor: default;
+    }
+
+    .msg-timestamp {
+      font-family: 'JetBrains Mono', monospace;
+      font-size: 0.65rem;
+      color: var(--text-dim);
+      font-weight: 400;
+    }
+
+    .msg-content {
+      font-size: 0.88rem;
+      font-weight: 400;
+      line-height: 1.55;
+      color: var(--text);
+      word-break: break-word;
+      white-space: pre-wrap;
+    }
+
+    /* Attachment pill */
+    .attachment-pill {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      background: var(--surface-3);
+      border: 1px solid var(--border);
+      border-radius: 6px;
+      padding: 4px 10px;
+      font-size: 0.75rem;
+      color: var(--accent);
+      text-decoration: none;
+      margin-top: 4px;
+      transition: background 0.15s, border-color 0.15s;
+    }
+
+    .attachment-pill:hover {
+      background: var(--accent-dim);
+      border-color: var(--accent);
+    }
+
+    /* System message */
+    .msg-row.system .msg-content {
+      color: var(--text-dim);
+      font-style: italic;
+      font-size: 0.82rem;
+    }
+
+    /* Search highlight */
+    mark {
+      background: var(--yellow-dim);
+      color: var(--yellow);
+      border-radius: 3px;
+      padding: 0 2px;
+    }
+
+    .msg-row.hidden { display: none; }
+
+    /* ── Day divider ───────────────────────────────────────────────── */
+    .day-divider {
+      display: flex;
+      align-items: center;
+      gap: 14px;
+      padding: 20px 0 8px;
+      color: var(--text-dim);
+      font-size: 0.7rem;
+      font-weight: 700;
+      letter-spacing: 0.1em;
+      text-transform: uppercase;
+    }
+
+    .day-divider::before,
+    .day-divider::after {
+      content: '';
+      flex: 1;
+      height: 1px;
+      background: var(--border);
+    }
+
+    /* ── Empty / loading states ───────────────────────────────────── */
+    .state-box {
+      text-align: center;
+      padding: 64px 20px;
+      color: var(--text-dim);
+    }
+
+    .state-box .icon {
+      font-size: 2.5rem;
+      margin-bottom: 16px;
+      display: block;
+    }
+
+    .state-box p {
+      font-size: 0.88rem;
+      line-height: 1.6;
+      max-width: 360px;
+      margin: 0 auto;
+    }
+
+    .spinner {
+      width: 32px;
+      height: 32px;
+      border: 3px solid var(--border);
+      border-top-color: var(--accent);
+      border-radius: 50%;
+      animation: spin 0.7s linear infinite;
+      margin: 0 auto 16px;
+    }
+
+    @keyframes spin { to { transform: rotate(360deg); } }
+
+    /* ── Scrollback button ────────────────────────────────────────── */
+    #scroll-top-btn {
+      position: fixed;
+      bottom: 28px;
+      right: 28px;
+      background: var(--accent);
+      color: #fff;
+      border: none;
+      border-radius: 50%;
+      width: 44px;
+      height: 44px;
+      font-size: 1.1rem;
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      box-shadow: 0 4px 20px rgba(88,101,242,0.5);
+      opacity: 0;
+      transform: translateY(12px);
+      transition: opacity 0.2s, transform 0.2s;
+      z-index: 99;
+    }
+
+    #scroll-top-btn.show {
+      opacity: 1;
+      transform: translateY(0);
+    }
+
+    /* ── Responsive ─────────────────────────────────────────────── */
+    @media (max-width: 600px) {
+      header { gap: 12px; padding: 20px 0 20px; }
+      #input-section { padding: 20px; }
+      .input-row { flex-direction: column; }
+      #meta-card { grid-template-columns: 1fr 1fr; }
+      .msg-row { padding: 5px 8px; }
+    }
+  </style>
+</head>
+<body>
+
+<div class="wrapper">
+
+  <!-- Header -->
+  <header>
+    <div class="logo" aria-hidden="true">🌿</div>
+    <div class="logo-text">
+      <h1>IronBark AU</h1>
+      <span>Ticket Transcript Viewer</span>
+    </div>
+  </header>
+
+  <!-- Load panel -->
+  <div id="input-section">
+    <label class="input-label" for="gist-input">GitHub Gist ID or URL</label>
+    <div class="input-row">
+      <input
+        id="gist-input"
+        type="text"
+        placeholder="e.g. a1b2c3d4e5f6… or https://gist.github.com/user/abc123"
+        autocomplete="off"
+        spellcheck="false"
+      />
+      <button id="load-btn" onclick="loadTranscript()">Load →</button>
+    </div>
+    <p class="input-hint">
+      Paste the Gist ID or full URL from the <strong>📋 Transcript</strong> button in a support ticket.
+      Transcripts are stored as <a href="https://gist.github.com" target="_blank" rel="noopener">GitHub Gists</a>
+      and accessed read-only.
+    </p>
+  </div>
+
+  <!-- Transcript output -->
+  <div id="transcript-container">
+    <div id="meta-card"></div>
+    <div class="toolbar">
+      <input id="search-input" type="search" placeholder="🔍  Search messages…" oninput="filterMessages()" />
+      <button class="toolbar-btn" onclick="copyRaw()" title="Copy raw transcript to clipboard">⎘ Copy Raw</button>
+      <button class="toolbar-btn" onclick="downloadTxt()" title="Download as .txt file">↓ Download</button>
+      <span id="msg-count"></span>
+    </div>
+    <div id="messages-feed"></div>
+  </div>
+
+</div>
+
+<!-- Scroll-to-top button -->
+<button id="scroll-top-btn" onclick="window.scrollTo({top:0,behavior:'smooth'})" title="Back to top">↑</button>
+
+<!-- Toast notification -->
+<div id="toast"></div>
+
+<script>
+// ── State ──────────────────────────────────────────────────────────
+let rawContent   = '';
+let parsedMsgs   = [];
+let metaData     = {};
+
+// ── On load — check URL params ────────────────────────────────────
+window.addEventListener('DOMContentLoaded', () => {
+  const params = new URLSearchParams(window.location.search);
+  const gistParam = params.get('gist');
+  if (gistParam) {
+    document.getElementById('gist-input').value = gistParam;
+    loadTranscript();
+  }
+
+  window.addEventListener('scroll', () => {
+    const btn = document.getElementById('scroll-top-btn');
+    btn.classList.toggle('show', window.scrollY > 400);
+  });
+
+  // Enter key triggers load
+  document.getElementById('gist-input').addEventListener('keydown', e => {
+    if (e.key === 'Enter') loadTranscript();
+  });
+});
+
+// ── Extract Gist ID from raw input ────────────────────────────────
+function extractGistId(raw) {
+  raw = raw.trim();
+  // Full URL: https://gist.github.com/user/abc123  OR  https://gist.github.com/abc123
+  const urlMatch = raw.match(/gist\.github\.com\/(?:[^/]+\/)?([a-f0-9]{20,})/i);
+  if (urlMatch) return urlMatch[1];
+  // Raw 32-char hex
+  if (/^[a-f0-9]{20,64}$/i.test(raw)) return raw;
+  return null;
+}
+
+// ── Load transcript ────────────────────────────────────────────────
+async function loadTranscript() {
+  const input = document.getElementById('gist-input').value;
+  const gistId = extractGistId(input);
+
+  if (!gistId) {
+    showToast('Invalid Gist ID or URL.', 'error');
+    return;
+  }
+
+  // Update URL without reload
+  const url = new URL(window.location.href);
+  url.searchParams.set('gist', gistId);
+  window.history.replaceState({}, '', url.toString());
+
+  const btn  = document.getElementById('load-btn');
+  const feed = document.getElementById('messages-feed');
+
+  btn.disabled = true;
+  btn.textContent = 'Loading…';
+
+  // Show loading spinner
+  const container = document.getElementById('transcript-container');
+  container.classList.remove('visible');
+  document.getElementById('meta-card').innerHTML = '';
+  feed.innerHTML = `<div class="state-box"><div class="spinner"></div><p>Fetching transcript…</p></div>`;
+  container.classList.add('visible');
+
+  try {
+    const resp = await fetch(`https://api.github.com/gists/${gistId}`, {
+      headers: { 'Accept': 'application/vnd.github.v3+json' }
+    });
+
+    if (!resp.ok) {
+      const msg = resp.status === 404
+        ? 'Gist not found. It may be private or the ID is wrong.'
+        : `GitHub API error: ${resp.status}`;
+      throw new Error(msg);
+    }
+
+    const data    = await resp.json();
+    const files   = Object.values(data.files);
+    const txtFile = files.find(f => f.filename.endsWith('.txt')) || files[0];
+
+    if (!txtFile) throw new Error('No text file found in this Gist.');
+
+    // Fetch full content if truncated
+    let content = txtFile.content;
+    if (txtFile.truncated) {
+      const rawResp = await fetch(txtFile.raw_url);
+      content = await rawResp.text();
+    }
+
+    rawContent = content;
+    renderTranscript(content, data);
+    showToast('Transcript loaded!', 'success');
+
+  } catch (err) {
+    feed.innerHTML = `<div class="state-box"><span class="icon">⚠️</span><p>${escapeHtml(err.message)}</p></div>`;
+    showToast(err.message, 'error');
+  } finally {
+    btn.disabled = false;
+    btn.textContent = 'Load →';
+  }
+}
+
+// ── Parse transcript text ──────────────────────────────────────────
+// Format: [DD/MM/YYYY HH:MM] Author: message
+// Header lines start with '#'
+function parseTranscript(text) {
+  const lines  = text.split('\n');
+  const meta   = {};
+  const msgs   = [];
+
+  const headerRe   = /^#\s+(\w[\w\s]*):\s+(.+)$/;
+  const messageRe  = /^\[(\d{2}\/\d{2}\/\d{4}\s\d{2}:\d{2})\]\s+(.+?):\s+(.*)$/;
+  const attachRe   = /^\[Attachment:\s*(https?:\/\/.+)\]$/i;
+  const dividerRe  = /^─+$/;
+
+  for (const raw of lines) {
+    const line = raw.trim();
+    if (!line) continue;
+
+    if (dividerRe.test(line)) continue;
+
+    const hm = line.match(headerRe);
+    if (hm) {
+      meta[hm[1].trim()] = hm[2].trim();
+      continue;
+    }
+
+    const mm = line.match(messageRe);
+    if (mm) {
+      const content = mm[3].trim();
+      const attachMatch = content.match(attachRe);
+      msgs.push({
+        timestamp : mm[1],
+        author    : mm[2].trim(),
+        content   : attachMatch ? '' : content,
+        attachment: attachMatch ? attachMatch[1] : null,
+        rawLine   : raw,
+      });
+      continue;
+    }
+
+    // Continuation lines (shouldn't happen with our format, but just in case)
+    if (msgs.length > 0 && line && !line.startsWith('#')) {
+      msgs[msgs.length - 1].content += '\n' + line;
+    }
+  }
+
+  return { meta, msgs };
+}
+
+// ── Render transcript ──────────────────────────────────────────────
+function renderTranscript(content, gistData) {
+  const { meta, msgs } = parseTranscript(content);
+  metaData   = meta;
+  parsedMsgs = msgs;
+
+  // ── Meta card ──
+  const ticketType  = (meta['Type'] || 'GENERAL').toUpperCase();
+  const badgeCls    = ticketType.includes('MGMT') ? 'badge-mgmt' : 'badge-gen';
+  const metaHtml = `
+    <div class="meta-item">
+      <label>Channel</label>
+      <span>${escapeHtml(meta['Channel'] || gistData.description || '—')}</span>
+    </div>
+    <div class="meta-item">
+      <label>Type</label>
+      <span><span class="badge ${badgeCls}">${escapeHtml(ticketType)}</span></span>
+    </div>
+    <div class="meta-item">
+      <label>Exported</label>
+      <span>${escapeHtml(meta['Exported'] || '—')}</span>
+    </div>
+    <div class="meta-item">
+      <label>Exported By</label>
+      <span>${escapeHtml(meta['By'] || '—')}</span>
+    </div>
+    <div class="meta-item">
+      <label>Messages</label>
+      <span>${msgs.length.toLocaleString()}</span>
+    </div>
+    <div class="meta-item">
+      <label>Owner ID</label>
+      <span style="font-family:'JetBrains Mono',monospace;font-size:0.78rem">${escapeHtml(meta['Owner ID'] || '—')}</span>
+    </div>
+  `;
+  document.getElementById('meta-card').innerHTML = metaHtml;
+
+  // ── Messages ──
+  renderMessages(msgs);
+  document.getElementById('transcript-container').classList.add('visible');
+}
+
+// ── Avatar initials helper ────────────────────────────────────────
+const avatarColors = [
+  '#5865f2','#57f287','#eb459e','#fee75c','#ed4245',
+  '#00b0ff','#a855f7','#f97316','#14b8a6','#e879f9'
+];
+
+function getAvatarColor(name) {
+  let h = 0;
+  for (let i = 0; i < name.length; i++) h = (h * 31 + name.charCodeAt(i)) & 0xffffffff;
+  return avatarColors[Math.abs(h) % avatarColors.length];
+}
+
+function initials(name) {
+  const parts = name.split(/\s+/);
+  return parts.length >= 2
+    ? (parts[0][0] + parts[1][0]).toUpperCase()
+    : name.slice(0, 2).toUpperCase();
+}
+
+// ── Parse timestamp to Date ────────────────────────────────────────
+function parseTs(ts) {
+  // DD/MM/YYYY HH:MM
+  const [datePart, timePart] = ts.split(' ');
+  const [d, m, y] = datePart.split('/');
+  const [hh, mm]  = timePart.split(':');
+  return new Date(+y, +m - 1, +d, +hh, +mm);
+}
+
+function fmtDate(d) {
+  return d.toLocaleDateString('en-AU', { weekday:'long', day:'numeric', month:'long', year:'numeric' });
+}
+
+// ── System-like messages (bot embeds, etc.) ────────────────────────
+const BOT_NAMES = ['IronBark', 'ironbark', 'Bot', 'bot'];
+function isSystem(author) {
+  return BOT_NAMES.some(b => author.toLowerCase().includes(b.toLowerCase()));
+}
+
+// ── Build message HTML ─────────────────────────────────────────────
+function buildMsgHtml(msg, showHeader, timeStr) {
+  const isBot  = isSystem(msg.author);
+  const avatarHtml = showHeader
+    ? `<div class="avatar" style="background:${getAvatarColor(msg.author)};color:#fff">${initials(msg.author)}</div>`
+    : `<div class="avatar-stub" data-time="${timeStr}"></div>`;
+
+  let contentHtml = '';
+  if (msg.content) {
+    contentHtml = `<div class="msg-content">${highlightSearch(escapeHtml(msg.content))}</div>`;
+  }
+  if (msg.attachment) {
+    const fname = decodeURIComponent(msg.attachment.split('/').pop().split('?')[0]) || 'Attachment';
+    contentHtml += `<a class="attachment-pill" href="${escapeHtml(msg.attachment)}" target="_blank" rel="noopener">📎 ${escapeHtml(fname)}</a>`;
+  }
+
+  const headerHtml = showHeader ? `
+    <div class="msg-header">
+      <span class="msg-author">${escapeHtml(msg.author)}</span>
+      <span class="msg-timestamp">${msg.timestamp}</span>
+    </div>` : '';
+
+  return `
+    <div class="msg-row${showHeader ? ' first-in-group' : ''}${isBot ? ' system' : ''}"
+         data-author="${escapeAttr(msg.author)}"
+         data-content="${escapeAttr(msg.content || '')}">
+      <div class="avatar-slot">${avatarHtml}</div>
+      <div class="msg-body">
+        ${headerHtml}
+        ${contentHtml}
+      </div>
+    </div>`;
+}
+
+// ── Render messages with grouping + day dividers ───────────────────
+function renderMessages(msgs, query = '') {
+  if (!msgs.length) {
+    document.getElementById('messages-feed').innerHTML =
+      `<div class="state-box"><span class="icon">📭</span><p>No messages found.</p></div>`;
+    document.getElementById('msg-count').textContent = '0 messages';
+    return;
+  }
+
+  let html       = '';
+  let lastAuthor = null;
+  let lastTime   = null;
+  let lastDay    = null;
+
+  for (const msg of msgs) {
+    const date    = parseTs(msg.timestamp);
+    const dayKey  = `${date.getFullYear()}-${date.getMonth()}-${date.getDate()}`;
+    const timeStr = msg.timestamp.split(' ')[1];
+
+    if (dayKey !== lastDay) {
+      html    += `<div class="day-divider">${fmtDate(date)}</div>`;
+      lastDay  = dayKey;
+      lastAuthor = null; // force new header after divider
+    }
+
+    // Group messages: same author within 5 minutes = no header
+    const isContinuation =
+      lastAuthor === msg.author &&
+      lastTime   !== null &&
+      (date - lastTime) < 5 * 60 * 1000;
+
+    html       += buildMsgHtml(msg, !isContinuation, timeStr);
+    lastAuthor  = msg.author;
+    lastTime    = date;
+  }
+
+  document.getElementById('messages-feed').innerHTML = html;
+  document.getElementById('msg-count').textContent = `${msgs.length.toLocaleString()} message${msgs.length !== 1 ? 's' : ''}`;
+}
+
+// ── Search / filter ───────────────────────────────────────────────
+let searchQuery = '';
+
+function filterMessages() {
+  searchQuery = document.getElementById('search-input').value.trim().toLowerCase();
+
+  if (!searchQuery) {
+    renderMessages(parsedMsgs);
+    return;
+  }
+
+  const filtered = parsedMsgs.filter(m =>
+    m.author.toLowerCase().includes(searchQuery) ||
+    m.content.toLowerCase().includes(searchQuery)
+  );
+
+  renderMessages(filtered, searchQuery);
+  // Re-apply highlights
+  document.querySelectorAll('.msg-content').forEach(el => {
+    el.innerHTML = highlightSearch(el.textContent);
+  });
+  document.getElementById('msg-count').textContent =
+    `${filtered.length.toLocaleString()} of ${parsedMsgs.length.toLocaleString()} messages`;
+}
+
+function highlightSearch(text) {
+  if (!searchQuery) return text;
+  const re = new RegExp(`(${escapeRegex(searchQuery)})`, 'gi');
+  return text.replace(re, '<mark>$1</mark>');
+}
+
+// ── Utilities ─────────────────────────────────────────────────────
+function escapeHtml(s) {
+  return String(s)
+    .replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;')
+    .replace(/"/g,'&quot;').replace(/'/g,'&#39;');
+}
+
+function escapeAttr(s) {
+  return String(s).replace(/"/g,'&quot;').replace(/'/g,'&#39;');
+}
+
+function escapeRegex(s) {
+  return s.replace(/[.*+?^${}()|[\]\\]/g,'\\$&');
+}
+
+// ── Copy raw ──────────────────────────────────────────────────────
+async function copyRaw() {
+  if (!rawContent) { showToast('No transcript loaded.', 'error'); return; }
+  try {
+    await navigator.clipboard.writeText(rawContent);
+    showToast('Copied to clipboard!', 'success');
+  } catch { showToast('Copy failed — try downloading instead.', 'error'); }
+}
+
+// ── Download ──────────────────────────────────────────────────────
+function downloadTxt() {
+  if (!rawContent) { showToast('No transcript loaded.', 'error'); return; }
+  const ch   = metaData['Channel'] || 'transcript';
+  const blob = new Blob([rawContent], { type: 'text/plain' });
+  const a    = document.createElement('a');
+  a.href     = URL.createObjectURL(blob);
+  a.download = `${ch}.txt`;
+  a.click();
+  URL.revokeObjectURL(a.href);
+}
+
+// ── Toast ─────────────────────────────────────────────────────────
+let toastTimer = null;
+function showToast(msg, type = '') {
+  const el = document.getElementById('toast');
+  el.textContent = msg;
+  el.className   = type ? `show ${type}` : 'show';
+  clearTimeout(toastTimer);
+  toastTimer = setTimeout(() => el.classList.remove('show'), 3200);
+}
+</script>
+
+</body>
+</html>
